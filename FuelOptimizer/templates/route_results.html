@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Optimization Results</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Route Optimization Results</h1>
+
+    <h2>Route Details</h2>
+    <p><strong>Start Location:</strong> {{ start_place }}</p>
+    <p><strong>End Location:</strong> {{ end_place }}</p>
+    <p><strong>Total Distance:</strong> {{ total_distance_miles }} miles</p>
+    <p><strong>Total Fuel Cost:</strong> ${{ total_fuel_cost }}</p>
+
+    <h2>Fuel Stops</h2>
+    <ul>
+        {% for stop in fuel_stops_info %}
+            <li>
+                <strong>Location:</strong> {{ stop.location }} <br>
+                <strong>Price per Gallon:</strong> ${{ stop.price_per_gallon }}
+            </li>
+        {% endfor %}
+    </ul>
+
+    <h2>Route Map</h2>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([37.7749, -122.4194], 6); // Default to San Francisco
+
+        // Add a tile layer (background map)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Decode route geometry (Polyline) to coordinates
+        function decodePolyline(encoded) {
+            let points = [];
+            let index = 0, len = encoded.length;
+            let lat = 0, lng = 0;
+
+            while (index < len) {
+                let b, shift = 0, result = 0;
+                do {
+                    b = encoded.charCodeAt(index++) - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                } while (b >= 0x20);
+                let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                lat += dlat;
+
+                shift = 0;
+                result = 0;
+                do {
+                    b = encoded.charCodeAt(index++) - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                } while (b >= 0x20);
+                let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                lng += dlng;
+
+                points.push([lat / 1E5, lng / 1E5]);
+            }
+
+            return points;
+        }
+
+        // Get the route geometry from the backend
+        var encodedRoute = "{{ route_geometry|escapejs }}";
+        var routeCoordinates = decodePolyline(encodedRoute);
+
+        // Add the route to the map
+        var route = L.polyline(routeCoordinates, { color: 'blue', weight: 4 }).addTo(map);
+
+        // Fit the map to the route
+        map.fitBounds(route.getBounds());
+    </script>
+</body>
+</html>
